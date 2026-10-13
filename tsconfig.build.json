@@ -1,0 +1,10 @@
+{
+  // What `npm run build` and the deploy compile: app code only, written to dist/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "noEmit": false
+  },
+  "include": ["src"]
+}

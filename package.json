@@ -16,8 +16,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@types/express": "^5.0.6",
