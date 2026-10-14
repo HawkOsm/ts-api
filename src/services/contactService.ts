@@ -1,4 +1,4 @@
-import { insertContact, getContactById, updateContact, deleteContact, Contact,getPicture,setPicture,removePicture } from "../db/contactStore";
+import { insertContact, getContactById, updateContact, deleteContact, listContacts, Contact,getPicture,setPicture,removePicture } from "../db/contactStore";
 import { DtoError } from "../dto/contactDto";
 import type { ContactPatch } from "../domain/contact";
 
@@ -18,6 +18,18 @@ function rethrowAsConflict(error: unknown): never {
 
 export class ContactService {
   get(id: number): Contact | null { return getContactById(id); }
+
+  // Every contact, oldest first. It carries hasPicture but never the picture bytes.
+  list(): Contact[] { return listContacts(); }
+
+  // Contacts whose name, email, phone or a tag contains the keyword, ignoring case.
+  // Done in code and not with SQL LIKE, so a "%" or "_" typed by the user is just a character.
+  search(keyword: string): Contact[] {
+    const term = keyword.trim().toLowerCase();
+    return listContacts().filter((c) =>
+      [c.first_name, c.last_name, `${c.first_name} ${c.last_name}`, c.email ?? "", c.phone ?? "", ...(c.tags ?? [])]
+        .some((text) => text.toLowerCase().includes(term)));
+  }
 
   create(contact: Contact): Contact {
     try {

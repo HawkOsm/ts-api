@@ -98,7 +98,8 @@ export function getContactById(id: number): Contact | null {
   return paramsToContact(row);
 }
 
-const selectAllStmt = db.prepare(`SELECT ${contactColumns} FROM contacts`);
+// ORDER BY id makes "oldest first" a guarantee; without it SQLite does not promise any order
+const selectAllStmt = db.prepare(`SELECT ${contactColumns} FROM contacts ORDER BY id`);
 export function listContacts(): Contact[] {
   const rows = selectAllStmt.all();
   return rows.map((row): Contact => (paramsToContact(row)));

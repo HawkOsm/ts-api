@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { ContactService } from "./services/contactService";
-import { ContactDto, ContactPatchDto, DtoError, parseId } from "./dto/contactDto";
+import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword } from "./dto/contactDto";
 
 const app = express();
 app.get("/", (req: Request, res: Response) => {
@@ -43,6 +43,16 @@ app.post("/contacts", (req: Request, res: Response) => {
   const dto = ContactDto.fromRequest(req.body);
   const contact = contactDb.create(dto.toContact());
   res.status(201).location(`/contacts/${contact.id}`).json(contact);
+});
+
+app.get("/contacts", (req: Request, res: Response) => {
+  res.json(contactDb.list());
+});
+
+// GET /contacts/search?keyword=... (like the teacher's /todos/search).
+// It must be registered BEFORE "/contacts/:id": otherwise "search" would be read as an id and give a 400.
+app.get("/contacts/search", (req: Request, res: Response) => {
+  res.json(contactDb.search(parseKeyword(req.query.keyword)));
 });
 
 app.get("/contacts/:id", (req: Request, res: Response) => {

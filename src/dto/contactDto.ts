@@ -128,6 +128,14 @@ export class ContactPatchDto {
     }
 }
 
+// ?keyword=... of GET /contacts/search: required, text, not blank (a repeated keyword arrives as a list, so it is rejected)
+export function parseKeyword(raw: unknown): string {
+    if (typeof raw !== "string" || raw.trim() === "") {
+        throw new DtoError("Query parameter 'keyword' is required", 400);
+    }
+    return raw.trim();
+}
+
 // "1" and "42" are ids; "abc", "1.5", "1abc", "-3", "0" and absurdly large numbers are not
 export function parseId(raw: unknown): number {
     if (typeof raw !== "string" || !/^[1-9][0-9]*$/.test(raw)) {
