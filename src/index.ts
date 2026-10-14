@@ -45,6 +45,21 @@ app.post("/contacts", (req: Request, res: Response) => {
   res.status(201).location(`/contacts/${contact.id}`).json(contact);
 });
 
+app.get("/contacts/:id", (req: Request, res: Response) => {
+  const contact = contactDb.get(parseId(req.params.id));
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  res.json(contact);
+});
+
+app.delete("/contacts/:id", (req: Request, res: Response) => {
+  if (!contactDb.delete(parseId(req.params.id))) throw new DtoError("Contact not found", 404);
+  res.status(204).end();
+});
+
+// Picture upload, download and deletion
 app.put("/contacts/:id/picture", upload.single("file"), (req: Request, res: Response) => {
   const id = parseId(req.params.id);
   if (!req.file) throw new DtoError("Send the image in a form field named 'file'", 400);
@@ -64,15 +79,11 @@ app.delete("/contacts/:id/picture", (req: Request, res: Response) => {
   res.status(204).end();
 });
 
-app.get("/contacts/:id", (req: Request, res: Response) => {
-  const contact = contactDb.get(parseId(req.params.id));
-  if (!contact) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-  res.json(contact);
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: "Route not found" });
 });
 
+// 2) every error thrown by a route or by multer ends up here
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof DtoError) { res.status(err.statusCode).json({ error: err.message }); return; }
   if (err instanceof multer.MulterError) {
@@ -83,3 +94,4 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: "internal server error" });
 });
+

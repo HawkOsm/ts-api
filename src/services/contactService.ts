@@ -35,17 +35,10 @@ export class ContactService {
     }
   }
 
-  delete(id: number): number | null { 
-    const contact = getContactById(id);
-    if (!contact) return null;
-    try {
-      deleteContact(id);
-    }
-    catch (error) {
-      console.error(`Error deleting contact with id ${id}:`, error);
-      return null; // Return null to indicate failed deletion
-    }
-    return id; // Return the ID to indicate successful deletion
+  // true = deleted, false = there was no such contact. A real database error is not caught here:
+  // it reaches the error handler and becomes a 500, instead of being reported as "not found".
+  delete(id: number): boolean {
+    return deleteContact(id);
   }
   setPicture(id: number, bytes: Uint8Array, type: string): boolean { return setPicture(id, bytes, type); }
   getPicture(id: number) { return getPicture(id); }
