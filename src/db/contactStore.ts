@@ -21,7 +21,7 @@ export function initialize_database(): void {
         first_name TEXT NOT NULL,
         last_name TEXT NOT NULL,
         email TEXT UNIQUE,
-        phone TEXT,
+        phone TEXT UNIQUE,
         tags TEXT,
         picture BLOB,
         picture_type TEXT

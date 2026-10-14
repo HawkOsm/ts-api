@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { ContactService } from "./services/contactService";
-import { DtoError, parseId } from "./dto/contactDto";
+import { ContactDto, DtoError, parseId } from "./dto/contactDto";
 
 const app = express();
 app.get("/", (req: Request, res: Response) => {
@@ -40,12 +40,9 @@ function looksLikeImage(bytes: Uint8Array, type: string): boolean {
 }
 
 app.post("/contacts", (req: Request, res: Response) => {
-  const contact = contactDb.create(req.body);
-  if (!contact) {
-    res.status(400).json({ error: "Failed to create contact" });
-    return;
-  }
-  res.status(201).json({ id: contact.id });
+  const dto = ContactDto.fromRequest(req.body);
+  const contact = contactDb.create(dto.toContact());
+  res.status(201).location(`/contacts/${contact.id}`).json(contact);
 });
 
 app.put("/contacts/:id/picture", upload.single("file"), (req: Request, res: Response) => {
@@ -68,7 +65,7 @@ app.delete("/contacts/:id/picture", (req: Request, res: Response) => {
 });
 
 app.get("/contacts/:id", (req: Request, res: Response) => {
-  const contact = contactDb.get(parseId(req.params.id));   // throws a 400 error for a bad id
+  const contact = contactDb.get(parseId(req.params.id));
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
     return;
@@ -82,6 +79,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: err.message });
     return;
   }
+  if (err?.type === "entity.parse.failed") { res.status(400).json({ error: "request body is not valid JSON" }); return; }
   console.error(err);
   res.status(500).json({ error: "internal server error" });
 });
