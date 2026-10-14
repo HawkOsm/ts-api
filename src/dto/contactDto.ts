@@ -1,4 +1,5 @@
 import { Contact } from "../db/contactStore";
+import type { ContactPatch } from "../domain/contact";
 
 export class DtoError extends Error {
     readonly statusCode: number;
@@ -17,6 +18,53 @@ const PHONE = /^\+?[0-9\s\-()]+$/;
 function normalizePhone(raw: string): string {
     const text = raw.trim();
     return (text.startsWith("+") ? "+" : "") + text.replace(/[^0-9]/g, "");
+}
+
+// ---------- small readers: each checks ONE field and returns a clean value, or throws a 400 ----------
+
+function readEmail(value: unknown): string {
+    if (typeof value !== "string" || !EMAIL.test(value.trim())) {
+        throw new DtoError("Invalid email format", 400);
+    }
+    return value.trim().toLowerCase();   // lowercase: Ann@x.com and ann@x.com are one email
+}
+
+function readPhone(value: unknown): string {
+    if (typeof value !== "string" || !PHONE.test(value.trim())) {
+        throw new DtoError("Invalid phone number format", 400);
+    }
+    const phone = normalizePhone(value);
+    if (phone.replace("+", "").length < 7 || phone.replace("+", "").length > 15) {
+        throw new DtoError("Invalid phone number format", 400);
+    }
+    return phone;
+}
+
+function readFlag(value: unknown): boolean {
+    if (typeof value !== "boolean") {
+        throw new DtoError("isStarred must be true or false", 400);
+    }
+    return value;
+}
+
+function readTags(value: unknown): string[] {
+    if (!Array.isArray(value)) throw new DtoError("tags must be a list of text", 400);
+    const tags: string[] = [];
+    for (const item of value) {
+        if (typeof item !== "string" || item.trim() === "" || item.includes(",")) {
+            throw new DtoError("Every tag must be non-empty text without commas", 400);
+        }
+        const tag = item.trim();
+        if (!tags.some((t) => t.toLowerCase() === tag.toLowerCase())) tags.push(tag);   // drop duplicates
+    }
+    return tags;
+}
+
+function readName(value: unknown, field: string): string {
+    if (typeof value !== "string" || value.trim() === "") {
+        throw new DtoError(`${field} must be non-empty text`, 400);
+    }
+    return value.trim();
 }
 
 export class ContactDto {
@@ -40,49 +88,43 @@ export class ContactDto {
             last_name: body.last_name.trim(),
         };
 
-        if (body.email != null) {   // `!= null` skips both "missing" and null
-            if (typeof body.email !== "string" || !EMAIL.test(body.email.trim())) {
-                throw new DtoError("Invalid email format", 400);
-            }
-            contact.email = body.email.trim().toLowerCase();   // lowercase: Ann@x.com and ann@x.com are one email
-        }
-
-        if (body.phone != null) {
-            if (typeof body.phone !== "string" || !PHONE.test(body.phone.trim())) {
-                throw new DtoError("Invalid phone number format", 400);
-            }
-            const phone = normalizePhone(body.phone);
-            if (phone.replace("+", "").length < 7 || phone.replace("+", "").length > 15) {
-                throw new DtoError("Invalid phone number format", 400);
-            }
-            contact.phone = phone;
-        }
-
-        if (body.isStarred !== undefined) {
-            if (typeof body.isStarred !== "boolean") {
-                throw new DtoError("isStarred must be true or false", 400);
-            }
-            contact.isStarred = body.isStarred;
-        }
-
-        if (body.tags != null) {
-            if (!Array.isArray(body.tags)) throw new DtoError("tags must be a list of text", 400);
-            const tags: string[] = [];
-            for (const item of body.tags) {
-                if (typeof item !== "string" || item.trim() === "" || item.includes(",")) {
-                    throw new DtoError("Every tag must be non-empty text without commas", 400);
-                }
-                const tag = item.trim();
-                if (!tags.some((t) => t.toLowerCase() === tag.toLowerCase())) tags.push(tag);   // drop duplicates
-            }
-            contact.tags = tags;
-        }
+        if (body.email != null) contact.email = readEmail(body.email);   // `!= null` skips both "missing" and null
+        if (body.phone != null) contact.phone = readPhone(body.phone);
+        if (body.isStarred !== undefined) contact.isStarred = readFlag(body.isStarred);
+        if (body.tags != null) contact.tags = readTags(body.tags);
 
         return new ContactDto(contact);
     }
 
     toContact(): Contact {
         return this.contact;
+    }
+}
+
+// PATCH: any subset of the fields, at least one. null clears email or phone (and empties the tags).
+export class ContactPatchDto {
+    private constructor(readonly patch: ContactPatch) {}
+
+    static fromRequest(body: any): ContactPatchDto {
+        if (typeof body !== "object" || body === null || Array.isArray(body)) {
+            throw new DtoError("Request body must be a JSON object", 400);
+        }
+        const patch: ContactPatch = {};
+        if (body.first_name !== undefined) patch.first_name = readName(body.first_name, "first_name");
+        if (body.last_name !== undefined) patch.last_name = readName(body.last_name, "last_name");
+        if (body.isStarred !== undefined) patch.isStarred = readFlag(body.isStarred);
+        if (body.email !== undefined) patch.email = body.email === null ? null : readEmail(body.email);
+        if (body.phone !== undefined) patch.phone = body.phone === null ? null : readPhone(body.phone);
+        if (body.tags !== undefined) patch.tags = body.tags === null ? [] : readTags(body.tags);
+
+        if (Object.keys(patch).length === 0) {   // unknown fields (id, hasPicture...) are ignored, so they count as nothing
+            throw new DtoError("Send at least one field to update", 400);
+        }
+        return new ContactPatchDto(patch);
+    }
+
+    toPatch(): ContactPatch {
+        return this.patch;
     }
 }
 

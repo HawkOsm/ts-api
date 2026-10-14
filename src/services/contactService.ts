@@ -1,5 +1,6 @@
 import { insertContact, getContactById, updateContact, deleteContact, Contact,getPicture,setPicture,removePicture } from "../db/contactStore";
 import { DtoError } from "../dto/contactDto";
+import type { ContactPatch } from "../domain/contact";
 
 // A duplicate email or phone makes SQLite throw "UNIQUE constraint failed: contacts.email" (or .phone).
 // Returns which field clashed ("email" or "phone"), or null when the error is something else.
@@ -27,12 +28,34 @@ export class ContactService {
     }
   }
 
-  update(id: number, contact: Contact): Contact | null {
+  replace(id: number, contact: Contact): Contact | null {
     try {
       return updateContact(id, contact) ? getContactById(id) : null;
     } catch (error) {
       return rethrowAsConflict(error);
     }
+  }
+
+  // PATCH: change only the fields in `patch`. Returns null when there is no such contact.
+  update(id: number, patch: ContactPatch): Contact | null {
+    const existing = getContactById(id);
+    if (!existing) return null;
+
+    const merged: Contact = {
+      id,
+      hasPicture: existing.hasPicture,
+      isStarred: patch.isStarred ?? existing.isStarred,
+      first_name: patch.first_name ?? existing.first_name,
+      last_name: patch.last_name ?? existing.last_name,
+    };
+    const email = patch.email === undefined ? existing.email : patch.email;   // null clears it
+    const phone = patch.phone === undefined ? existing.phone : patch.phone;
+    const tags = patch.tags ?? existing.tags;
+    if (email != null) merged.email = email;
+    if (phone != null) merged.phone = phone;
+    if (tags !== undefined) merged.tags = tags;
+
+    return this.replace(id, merged);
   }
 
   // true = deleted, false = there was no such contact. A real database error is not caught here:

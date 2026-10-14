@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { ContactService } from "./services/contactService";
-import { ContactDto, DtoError, parseId } from "./dto/contactDto";
+import { ContactDto, ContactPatchDto, DtoError, parseId } from "./dto/contactDto";
 
 const app = express();
 app.get("/", (req: Request, res: Response) => {
@@ -51,6 +51,23 @@ app.get("/contacts/:id", (req: Request, res: Response) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
+  res.json(contact);
+});
+
+app.put("/contacts/:id", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);                          
+  const dto = ContactDto.fromRequest(req.body);                   
+  const contact = contactDb.replace(id, dto.toContact());        
+  if (!contact) throw new DtoError("Contact not found", 404);
+  res.json(contact);
+});
+
+// PATCH = change some fields only, e.g. {"isStarred": true}
+app.patch("/contacts/:id", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  const dto = ContactPatchDto.fromRequest(req.body);
+  const contact = contactDb.update(id, dto.toPatch());
+  if (!contact) throw new DtoError("Contact not found", 404);
   res.json(contact);
 });
 
