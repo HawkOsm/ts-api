@@ -1,5 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import multer from "multer";
+import swaggerUi from "swagger-ui-express";
+import openapi from "./docs/openapi.json";
 import { ContactService } from "./services/contactService";
 import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword } from "./dto/contactDto";
 
@@ -19,6 +21,15 @@ app.listen(serverPort, () => {
 });
 
 app.use(express.json());
+
+// Swagger: the page is at /api-docs and the raw spec at /openapi.json.
+// servers is forced to "/" so "Try it out" calls the same host, locally and on Azure.
+const swaggerDocument = { ...openapi, servers: [{ url: "/" }] };
+app.get("/openapi.json", (req: Request, res: Response) => {
+  res.json(swaggerDocument);
+});
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 const contactDb = new ContactService();
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const upload = multer({

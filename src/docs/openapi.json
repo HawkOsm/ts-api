@@ -1,0 +1,369 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Address Book API",
+    "version": "1.0.0",
+    "description": "SE4458 Assignment 2, Group 1"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    { "name": "Contacts", "description": "Create, read, update, delete, list and search contacts" },
+    { "name": "Pictures", "description": "Upload, download and remove the picture of a contact" }
+  ],
+  "components": {
+    "schemas": {
+      "ContactDto": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "first_name": { "type": "string", "example": "Alan" },
+          "last_name": { "type": "string", "example": "Turing" },
+          "email": { "type": "string", "example": "alan.turing@mail.com" },
+          "phone": { "type": "string", "example": "+15551234567" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
+          "isStarred": { "type": "boolean", "example": false },
+          "hasPicture": { "type": "boolean", "example": false }
+        },
+        "required": ["id", "first_name", "last_name", "isStarred", "hasPicture"]
+      },
+      "CreateContactDto": {
+        "type": "object",
+        "properties": {
+          "first_name": { "type": "string", "example": "Alan" },
+          "last_name": { "type": "string", "example": "Turing" },
+          "email": { "type": "string", "example": "alan.turing@mail.com" },
+          "phone": { "type": "string", "example": "+1 555 123 4567" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
+          "isStarred": { "type": "boolean", "example": false }
+        },
+        "required": ["first_name", "last_name"]
+      },
+      "PatchContactDto": {
+        "type": "object",
+        "properties": {
+          "first_name": { "type": "string", "example": "Alan" },
+          "last_name": { "type": "string", "example": "Turing" },
+          "email": { "type": "string", "nullable": true, "example": "alan.turing@mail.com" },
+          "phone": { "type": "string", "nullable": true, "example": "+1 555 123 4567" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
+          "isStarred": { "type": "boolean", "example": true }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "Contact not found" }
+        },
+        "required": ["error"]
+      }
+    }
+  },
+  "paths": {
+    "/contacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "List all contacts (oldest first)",
+        "responses": {
+          "200": {
+            "description": "List of contacts",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ContactDto" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Create a contact",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateContactDto" } }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contact created",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ContactDto" } }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "409": {
+            "description": "Another contact already has this email or phone",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/search": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Search contacts by keyword (name, email, phone or tag)",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": true,
+            "description": "Text to look for, ignoring case",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching contacts",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ContactDto" } }
+              }
+            }
+          },
+          "400": {
+            "description": "keyword is missing or blank",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer", "minimum": 1 }
+        }
+      ],
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get a contact by id",
+        "responses": {
+          "200": {
+            "description": "The contact",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ContactDto" } }
+            }
+          },
+          "400": {
+            "description": "Invalid id",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Contacts"],
+        "summary": "Replace a contact (fields that are not sent are cleared)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateContactDto" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact replaced",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ContactDto" } }
+            }
+          },
+          "400": {
+            "description": "Invalid id or payload",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "409": {
+            "description": "Another contact already has this email or phone",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Contacts"],
+        "summary": "Change some fields of a contact, for example favorite it with isStarred",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PatchContactDto" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact updated",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ContactDto" } }
+            }
+          },
+          "400": {
+            "description": "Invalid id or payload (at least one field is required)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "409": {
+            "description": "Another contact already has this email or phone",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Contacts"],
+        "summary": "Delete a contact",
+        "responses": {
+          "204": { "description": "Contact deleted" },
+          "400": {
+            "description": "Invalid id",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/{id}/picture": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer", "minimum": 1 }
+        }
+      ],
+      "put": {
+        "tags": ["Pictures"],
+        "summary": "Upload (or replace) the picture of a contact: png, jpeg or webp, up to 1 MB",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Picture saved" },
+          "400": {
+            "description": "Invalid id, or no file in the form field named file",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "413": {
+            "description": "File is larger than 1 MB",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "415": {
+            "description": "File is not a png, jpeg or webp image",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Pictures"],
+        "summary": "Download the picture of a contact",
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": { "schema": { "type": "string", "format": "binary" } },
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+              "image/webp": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "400": {
+            "description": "Invalid id",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "The contact has no picture",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Pictures"],
+        "summary": "Remove the picture of a contact",
+        "responses": {
+          "204": { "description": "Picture removed" },
+          "400": {
+            "description": "Invalid id",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "The contact has no picture",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}
