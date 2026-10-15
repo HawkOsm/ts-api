@@ -12,6 +12,7 @@
   ],
   "tags": [
     { "name": "Contacts", "description": "Create, read, update, delete, list and search contacts" },
+    { "name": "Sorting", "description": "Get all contacts in a chosen order" },
     { "name": "Pictures", "description": "Upload, download and remove the picture of a contact" }
   ],
   "components": {
@@ -133,6 +134,37 @@
           },
           "400": {
             "description": "keyword is missing or blank",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/sort": {
+      "get": {
+        "tags": ["Sorting"],
+        "summary": "List all contacts in a chosen order",
+        "parameters": [
+          {
+            "name": "by",
+            "in": "query",
+            "required": true,
+            "description": "name = first name A to Z (then last name), name_desc = Z to A, tags = by each contact's first tag in alphabetical order, contacts without tags last. Upper and lower case are treated the same.",
+            "schema": { "type": "string", "enum": ["name", "name_desc", "tags"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All contacts in the chosen order",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ContactDto" } }
+              }
+            }
+          },
+          "400": {
+            "description": "by is missing or is not one of the allowed values",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }

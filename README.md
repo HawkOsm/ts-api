@@ -1,7 +1,7 @@
 
 # Address Book API
 
-SE4458 Assignment 2, Group 1 (Address Book). A REST API to create, edit, delete, search
+SE4458 Assignment 2, Group 1 (Address Book). A REST API to create, edit, delete, search, sort
 and favorite contacts, built with TypeScript and Express and deployed on Azure App Service.
 
 - **Source code:** https://github.com/HawkOsm/ts-api
@@ -18,7 +18,7 @@ Tests: `npm test`.
 
 Layers, each talking only to the one below: route (`src/index.ts`) -> DTO (`src/dto`, validates
 requests and shapes responses) -> service (`src/services`, rules such as "not found", merging a
-PATCH, search) -> store (`src/db`, the only place with SQL).
+PATCH, search and sort) -> store (`src/db`, the only place with SQL).
 
 - **Storage:** SQLite in memory (`node:sqlite`, as the assignment requires), with prepared
   statements and named parameters.
@@ -42,10 +42,14 @@ PATCH, search) -> store (`src/db`, the only place with SQL).
   memory with the contact (lost on restart) and uploaded on its own route. A contact without a
   picture has `hasPicture: false`, and a client is expected to show the initials of the first and
   last name instead.
-- Search ignores case and looks in names, email, phone and tags. Lists come back oldest first;
-  there is no sort option.
+- Search ignores case and looks in names, email, phone and tags. `GET /contacts` returns the contacts
+  oldest first.
+- **Sorting** is its own endpoint, `GET /contacts/sort?by=...`, like search: `name` (A to Z by first
+  name, then last name), `name_desc`, or `tags` (by each contact's first tag in alphabetical order,
+  contacts without tags last, ties by name). Sorting ignores case and uses plain English letter order;
+  there is no special handling for Turkish letters.
 - No authentication (not requested). `PUT` on an unknown id gives 404 instead of creating a contact.
-- Not implemented: sort options, a tag filter, pagination.
+- Not implemented: a tag filter, pagination.
 
 ## Issues encountered
 

@@ -3,7 +3,7 @@ import multer from "multer";
 import swaggerUi from "swagger-ui-express";
 import openapi from "./docs/openapi.json";
 import { ContactService } from "./services/contactService";
-import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword } from "./dto/contactDto";
+import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword, parseSortBy } from "./dto/contactDto";
 
 const app = express();
 app.get("/", (req: Request, res: Response) => {
@@ -64,6 +64,12 @@ app.get("/contacts", (req: Request, res: Response) => {
 // It must be registered BEFORE "/contacts/:id": otherwise "search" would be read as an id and give a 400.
 app.get("/contacts/search", (req: Request, res: Response) => {
   res.json(contactDb.search(parseKeyword(req.query.keyword)));
+});
+
+// GET /contacts/sort?by=name|name_desc|tags: every contact in the chosen order.
+// Also registered BEFORE "/contacts/:id", for the same reason as "/contacts/search".
+app.get("/contacts/sort", (req: Request, res: Response) => {
+  res.json(contactDb.listSorted(parseSortBy(req.query.by)));
 });
 
 app.get("/contacts/:id", (req: Request, res: Response) => {

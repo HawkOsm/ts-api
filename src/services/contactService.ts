@@ -1,6 +1,6 @@
 import { insertContact, getContactById, updateContact, deleteContact, listContacts, Contact,getPicture,setPicture,removePicture } from "../db/contactStore";
 import { DtoError } from "../dto/contactDto";
-import type { ContactPatch } from "../domain/contact";
+import type { ContactPatch, SortOption } from "../domain/contact";
 
 // A duplicate email or phone makes SQLite throw "UNIQUE constraint failed: contacts.email" (or .phone).
 // Returns which field clashed ("email" or "phone"), or null when the error is something else.
@@ -16,8 +16,41 @@ function rethrowAsConflict(error: unknown): never {
   throw error;   // anything else is a real bug: let the error handler answer 500
 }
 
+// compares text for sorting, ignoring upper/lower case: "alan" and "Alan" count as the same word.
+// "en" is fixed on purpose, so the order does not depend on the language setting of the server.
+function compareText(a: string, b: string): number {
+  return a.localeCompare(b, "en", { sensitivity: "base" });
+}
+
+// first name, then last name
+function byName(a: Contact, b: Contact): number {
+  return compareText(a.first_name, b.first_name) || compareText(a.last_name, b.last_name);
+}
+
+// the alphabetically first tag of a contact, or null when it has no tags
+function firstTag(c: Contact): string | null {
+  const sorted = [...(c.tags ?? [])].sort(compareText);
+  return sorted[0] ?? null;
+}
+
 export class ContactService {
   get(id: number): Contact | null { return getContactById(id); }
+
+  // Every contact in the chosen order. With "tags", contacts are ordered by their first tag,
+  // contacts without tags come last, and contacts with the same tag are ordered by name.
+  listSorted(by: SortOption): Contact[] {
+    const contacts = [...listContacts()];   // a copy: sort() would otherwise reorder the original array
+    if (by === "name") return contacts.sort(byName);
+    if (by === "name_desc") return contacts.sort((a, b) => byName(b, a));
+    return contacts.sort((a, b) => {
+      const tagA = firstTag(a);
+      const tagB = firstTag(b);
+      if (tagA === null && tagB === null) return byName(a, b);
+      if (tagA === null) return 1;
+      if (tagB === null) return -1;
+      return compareText(tagA, tagB) || byName(a, b);
+    });
+  }
 
   // Every contact, oldest first. It carries hasPicture but never the picture bytes.
   list(): Contact[] { return listContacts(); }

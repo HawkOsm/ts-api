@@ -1,5 +1,5 @@
 import { Contact } from "../db/contactStore";
-import type { ContactPatch } from "../domain/contact";
+import type { ContactPatch, SortOption } from "../domain/contact";
 
 export class DtoError extends Error {
     readonly statusCode: number;
@@ -126,6 +126,16 @@ export class ContactPatchDto {
     toPatch(): ContactPatch {
         return this.patch;
     }
+}
+
+const SORTS: readonly SortOption[] = ["name", "name_desc", "tags"];
+
+// ?by=... of GET /contacts/sort: required, and one of the allowed words (a repeated "by" arrives as a list, so it is rejected)
+export function parseSortBy(raw: unknown): SortOption {
+    if (typeof raw !== "string" || !SORTS.includes(raw as SortOption)) {
+        throw new DtoError(`Query parameter 'by' is required and must be one of: ${SORTS.join(", ")}`, 400);
+    }
+    return raw as SortOption;
 }
 
 // ?keyword=... of GET /contacts/search: required, text, not blank (a repeated keyword arrives as a list, so it is rejected)
