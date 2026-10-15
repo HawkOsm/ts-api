@@ -3,7 +3,7 @@ import multer from "multer";
 import swaggerUi from "swagger-ui-express";
 import openapi from "./docs/openapi.json";
 import { ContactService } from "./services/contactService";
-import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword, parseSortBy } from "./dto/contactDto";
+import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword, parseSortBy, parseTagBody, parseTagName, parseTagSearch } from "./dto/contactDto";
 
 const app = express();
 app.get("/", (req: Request, res: Response) => {
@@ -120,6 +120,21 @@ app.get("/contacts/:id/picture", (req: Request, res: Response) => {
 
 app.delete("/contacts/:id/picture", (req: Request, res: Response) => {
   if (!contactDb.removePicture(parseId(req.params.id))) throw new DtoError("No picture", 404);
+  res.status(204).end();
+});
+
+// The list of known tags (add and delete, no rename)
+app.get("/tags", (req: Request, res: Response) => {
+  res.json(contactDb.getTags(parseTagSearch(req.query.search)));
+});
+
+app.post("/tags", (req: Request, res: Response) => {
+  const tag = contactDb.addTag(parseTagBody(req.body));   // 400 for a bad name, 409 if it already exists
+  res.status(201).location(`/tags/${encodeURIComponent(tag.name)}`).json(tag);
+});
+
+app.delete("/tags/:name", (req: Request, res: Response) => {
+  if (!contactDb.removeTag(parseTagName(req.params.name))) throw new DtoError("Tag not found", 404);
   res.status(204).end();
 });
 

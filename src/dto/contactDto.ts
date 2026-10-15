@@ -138,6 +138,29 @@ export function parseSortBy(raw: unknown): SortOption {
     return raw as SortOption;
 }
 
+// A tag name, from a request body or from the URL: text, not blank, no comma (a comma separates the tags inside a contact)
+export function parseTagName(raw: unknown): string {
+    if (typeof raw !== "string" || raw.trim() === "" || raw.includes(",")) {
+        throw new DtoError("Tag name must be non-empty text without commas", 400);
+    }
+    return raw.trim();
+}
+
+// the body of POST /tags: { "name": "Gym" }
+export function parseTagBody(body: unknown): string {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+        throw new DtoError("Request body must be a JSON object", 400);
+    }
+    return parseTagName((body as Record<string, unknown>).name);
+}
+
+// ?search=... of GET /tags: optional text; empty means "no filter"
+export function parseTagSearch(raw: unknown): string | undefined {
+    if (raw === undefined) return undefined;
+    if (typeof raw !== "string") throw new DtoError("Query parameter 'search' must be text", 400);
+    return raw.trim() === "" ? undefined : raw.trim();
+}
+
 // ?keyword=... of GET /contacts/search: required, text, not blank (a repeated keyword arrives as a list, so it is rejected)
 export function parseKeyword(raw: unknown): string {
     if (typeof raw !== "string" || raw.trim() === "") {

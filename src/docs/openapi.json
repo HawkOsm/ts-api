@@ -13,6 +13,10 @@
   "tags": [
     { "name": "Contacts", "description": "Create, read, update, delete, list and search contacts" },
     { "name": "Sorting", "description": "Get all contacts in a chosen order" },
+    {
+      "name": "Tags",
+      "description": "The list of known tags: list and search them, create a new one, delete one."
+    },
     { "name": "Pictures", "description": "Upload, download and remove the picture of a contact" }
   ],
   "components": {
@@ -53,6 +57,21 @@
           "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
           "isStarred": { "type": "boolean", "example": true }
         }
+      },
+      "TagDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Work" },
+          "contactCount": { "type": "integer", "example": 2, "description": "How many contacts have this tag" }
+        },
+        "required": ["name", "contactCount"]
+      },
+      "CreateTagDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Work", "description": "Not empty, no comma. Upper and lower case count as the same tag." }
+        },
+        "required": ["name"]
       },
       "ErrorResponse": {
         "type": "object",
@@ -165,6 +184,97 @@
           },
           "400": {
             "description": "by is missing or is not one of the allowed values",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/tags": {
+      "get": {
+        "tags": ["Tags"],
+        "summary": "List the known tags (optionally only those containing some text)",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Keep only the tags that contain this text, ignoring case",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tags in alphabetical order (an empty list when none match)",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TagDto" } }
+              }
+            }
+          },
+          "400": {
+            "description": "search is not text",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Tags"],
+        "summary": "Create a new tag",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTagDto" } }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tag created",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TagDto" } }
+            }
+          },
+          "400": {
+            "description": "The name is empty, not text, or contains a comma",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "409": {
+            "description": "The tag already exists (ignoring case)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{name}": {
+      "delete": {
+        "tags": ["Tags"],
+        "summary": "Delete a tag from the list and from every contact that has it",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "The tag name (ignoring case); spaces must be URL-encoded as %20",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Tag deleted" },
+          "400": {
+            "description": "Invalid tag name",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Tag not found",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }

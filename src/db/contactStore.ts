@@ -26,6 +26,11 @@ export function initialize_database(): void {
         picture BLOB,
         picture_type TEXT
         );
+
+        -- the list of known tags; COLLATE NOCASE makes "Work" and "work" the same tag
+        CREATE TABLE IF NOT EXISTS tags (
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE
+        );
     `);
 }
 
@@ -117,4 +122,23 @@ export function getPicture(id: number): { bytes: Uint8Array; type: string } | nu
 
 export function removePicture(id: number): boolean {
   return removePictureStmt.run({ id }).changes > 0;
+}
+
+// ---------- the list of known tags ----------
+
+// true = the tag was added, false = a tag with this name (ignoring case) already existed
+const insertTagStmt = db.prepare("INSERT INTO tags (name) VALUES (:name) ON CONFLICT(name) DO NOTHING");
+export function insertTag(name: string): boolean {
+  return insertTagStmt.run({ name }).changes > 0;
+}
+
+const listTagsStmt = db.prepare("SELECT name FROM tags ORDER BY name COLLATE NOCASE");
+export function listTags(): string[] {
+  return listTagsStmt.all().map((row) => String(row.name));
+}
+
+// true = deleted, false = no such tag
+const deleteTagStmt = db.prepare("DELETE FROM tags WHERE name = :name");
+export function deleteTag(name: string): boolean {
+  return deleteTagStmt.run({ name }).changes > 0;
 }

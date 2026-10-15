@@ -1,6 +1,11 @@
-import { insertContact, getContactById, updateContact, deleteContact, listContacts, Contact,getPicture,setPicture,removePicture } from "../db/contactStore";
+import { insertContact, getContactById, updateContact, deleteContact, listContacts, Contact,getPicture,setPicture,removePicture, insertTag, listTags, deleteTag } from "../db/contactStore";
 import { DtoError } from "../dto/contactDto";
-import type { ContactPatch, SortOption } from "../domain/contact";
+import type { ContactPatch, SortOption, TagInfo } from "../domain/contact";
+
+// "Work" and "work" are the same tag
+function sameTag(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
 
 // A duplicate email or phone makes SQLite throw "UNIQUE constraint failed: contacts.email" (or .phone).
 // Returns which field clashed ("email" or "phone"), or null when the error is something else.
@@ -64,9 +69,23 @@ export class ContactService {
         .some((text) => text.toLowerCase().includes(term)));
   }
 
+  // A tag typed with a different capitalization than a known tag takes the known spelling ("work" -> "Work").
+  private useKnownTags(contact: Contact): Contact {
+    if (!contact.tags) return contact;
+    const known = listTags();
+    return { ...contact, tags: contact.tags.map((tag) => known.find((k) => sameTag(k, tag)) ?? tag) };
+  }
+
+  // After a contact was saved, every new tag on it joins the list of known tags.
+  private rememberTags(contact: Contact): void {
+    for (const tag of contact.tags ?? []) insertTag(tag);
+  }
+
   create(contact: Contact): Contact {
+    const toSave = this.useKnownTags(contact);
     try {
-      const id = insertContact(contact);
+      const id = insertContact(toSave);
+      this.rememberTags(toSave);
       return getContactById(id)!;
     } catch (error) {
       return rethrowAsConflict(error);
@@ -74,11 +93,42 @@ export class ContactService {
   }
 
   replace(id: number, contact: Contact): Contact | null {
+    const toSave = this.useKnownTags(contact);
     try {
-      return updateContact(id, contact) ? getContactById(id) : null;
+      if (!updateContact(id, toSave)) return null;
+      this.rememberTags(toSave);
+      return getContactById(id);
     } catch (error) {
       return rethrowAsConflict(error);
     }
+  }
+
+  // ---------- tags ----------
+
+  // Every known tag with the number of contacts that use it. `search` keeps only the tags that contain that text.
+  getTags(search?: string): TagInfo[] {
+    const term = search?.trim().toLowerCase();
+    const contacts = listContacts();
+    return listTags()
+      .filter((name) => !term || name.toLowerCase().includes(term))
+      .map((name) => ({ name, contactCount: contacts.filter((c) => c.tags?.some((t) => sameTag(t, name))).length }));
+  }
+
+  // Adds a tag to the list of known tags. A tag that already exists (ignoring case) is a 409.
+  addTag(name: string): TagInfo {
+    if (!insertTag(name)) throw new DtoError("This tag already exists", 409);
+    return { name, contactCount: 0 };
+  }
+
+  // Removes the tag from the list AND from every contact that has it. false = there was no such tag.
+  removeTag(name: string): boolean {
+    if (!deleteTag(name)) return false;
+    for (const c of listContacts()) {
+      if (c.tags?.some((t) => sameTag(t, name))) {
+        updateContact(c.id, { ...c, tags: c.tags.filter((t) => !sameTag(t, name)) });
+      }
+    }
+    return true;
   }
 
   // PATCH: change only the fields in `patch`. Returns null when there is no such contact.

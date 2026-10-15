@@ -36,8 +36,10 @@ PATCH, search and sort) -> store (`src/db`, the only place with SQL).
 - Only first and last name are required; email (unique) and phone are optional.
 - **Tags:** free text, kept with the contact as a list (for example `["Work", "Gym"]`). A tag cannot
   be empty or contain a comma, duplicates inside one contact (ignoring case) are dropped, and a
-  contact may have no tags. A tag exists only while a contact uses it, so there are no endpoints to
-  create, list or delete tags on their own.
+  contact may have no tags. There is also a list of known tags with its own endpoints: `GET /tags`
+  (optionally `?search=text`), `POST /tags` and `DELETE /tags/{name}`; there is no rename. Upper and
+  lower case count as the same tag. A tag first used on a contact is added to the list automatically
+  and takes the spelling of the known tag, and deleting a tag also removes it from every contact.
 - **Profile picture:** optional, at most one per contact, png, jpeg or webp up to 1 MB. It is kept in
   memory with the contact (lost on restart) and uploaded on its own route. A contact without a
   picture has `hasPicture: false`, and a client is expected to show the initials of the first and
