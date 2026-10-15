@@ -40,9 +40,9 @@
         "properties": {
           "first_name": { "type": "string", "example": "Alan" },
           "last_name": { "type": "string", "example": "Turing" },
-          "email": { "type": "string", "example": "alan.turing@mail.com" },
-          "phone": { "type": "string", "example": "+1 555 123 4567" },
-          "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
+          "email": { "type": "string", "nullable": true, "example": "alan.turing@mail.com" },
+          "phone": { "type": "string", "nullable": true, "example": "+1 555 123 4567" },
+          "tags": { "type": "array", "nullable": true, "items": { "type": "string" }, "example": ["Work"] },
           "isStarred": { "type": "boolean", "example": false }
         },
         "required": ["first_name", "last_name"]
@@ -54,7 +54,7 @@
           "last_name": { "type": "string", "example": "Turing" },
           "email": { "type": "string", "nullable": true, "example": "alan.turing@mail.com" },
           "phone": { "type": "string", "nullable": true, "example": "+1 555 123 4567" },
-          "tags": { "type": "array", "items": { "type": "string" }, "example": ["Work"] },
+          "tags": { "type": "array", "nullable": true, "items": { "type": "string" }, "example": ["Work"] },
           "isStarred": { "type": "boolean", "example": true }
         }
       },
@@ -121,7 +121,7 @@
             }
           },
           "409": {
-            "description": "Another contact already has this email or phone",
+            "description": "Another contact already has this email or phone, or the address book is full (300 contacts)",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }
@@ -244,7 +244,7 @@
             }
           },
           "409": {
-            "description": "The tag already exists (ignoring case)",
+            "description": "The tag already exists (ignoring case), or there are too many tags (200)",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }

@@ -1,4 +1,5 @@
-import { DatabaseSync } from "node:sqlite";   
+import { DatabaseSync } from "node:sqlite";
+import { tagKey } from "../domain/contact";
 
 const db = new DatabaseSync(":memory:");
 
@@ -27,9 +28,10 @@ export function initialize_database(): void {
         picture_type TEXT
         );
 
-        -- the list of known tags; COLLATE NOCASE makes "Work" and "work" the same tag
+        -- the list of known tags; key is tagKey(name), so the database and the code agree on "same tag"
         CREATE TABLE IF NOT EXISTS tags (
-        name TEXT NOT NULL UNIQUE COLLATE NOCASE
+        key TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL
         );
     `);
 }
@@ -126,19 +128,39 @@ export function removePicture(id: number): boolean {
 
 // ---------- the list of known tags ----------
 
-// true = the tag was added, false = a tag with this name (ignoring case) already existed
-const insertTagStmt = db.prepare("INSERT INTO tags (name) VALUES (:name) ON CONFLICT(name) DO NOTHING");
+// true = the tag was added, false = the same tag (see tagKey) already existed
+const insertTagStmt = db.prepare("INSERT INTO tags (key, name) VALUES (:key, :name) ON CONFLICT(key) DO NOTHING");
 export function insertTag(name: string): boolean {
-  return insertTagStmt.run({ name }).changes > 0;
+  return insertTagStmt.run({ key: tagKey(name), name }).changes > 0;
 }
 
-const listTagsStmt = db.prepare("SELECT name FROM tags ORDER BY name COLLATE NOCASE");
+const listTagsStmt = db.prepare("SELECT name FROM tags ORDER BY key");
 export function listTags(): string[] {
   return listTagsStmt.all().map((row) => String(row.name));
 }
 
 // true = deleted, false = no such tag
-const deleteTagStmt = db.prepare("DELETE FROM tags WHERE name = :name");
+const deleteTagStmt = db.prepare("DELETE FROM tags WHERE key = :key");
 export function deleteTag(name: string): boolean {
-  return deleteTagStmt.run({ name }).changes > 0;
+  return deleteTagStmt.run({ key: tagKey(name) }).changes > 0;
+}
+
+// ---------- helpers for the service ----------
+
+const countContactsStmt = db.prepare("SELECT COUNT(*) AS n FROM contacts");
+export function countContacts(): number {
+  return Number(countContactsStmt.get()?.n ?? 0);
+}
+
+// Runs `work` as one unit: if it throws, every change it made is undone (do not nest calls).
+export function inTransaction<T>(work: () => T): T {
+  db.exec("BEGIN");
+  try {
+    const result = work();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }

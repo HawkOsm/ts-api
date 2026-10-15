@@ -6,6 +6,23 @@ import { ContactService } from "./services/contactService";
 import { ContactDto, ContactPatchDto, DtoError, parseId, parseKeyword, parseSortBy, parseTagBody, parseTagName, parseTagSearch } from "./dto/contactDto";
 
 const app = express();
+app.disable("x-powered-by");   // do not tell every client which framework runs here
+
+// CORS: lets a web app served from another address (for example a contact-list UI) call this API.
+// There are no logins or cookies, so allowing every origin is safe. A browser first sends an OPTIONS
+// "preflight" request before POST/PUT/PATCH/DELETE with JSON, and it must be answered here.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", "Location");   // so the UI can read the Location of a new contact
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello World!");
 });
@@ -149,7 +166,16 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: err.message });
     return;
   }
-  if (err?.type === "entity.parse.failed") { res.status(400).json({ error: "request body is not valid JSON" }); return; }
+  // Express and its body parser attach the right 4xx status to the errors caused by the client
+  // (a broken URL like /contacts/%E0%A4%A, bad JSON, a body over 100 KB): pass that status on instead of a 500.
+  const status = err?.status ?? err?.statusCode;
+  if (typeof status === "number" && status >= 400 && status < 500) {
+    const error = err.type === "entity.parse.failed" ? "request body is not valid JSON"
+      : err.type === "entity.too.large" ? "request body is too large"
+      : String(err.message ?? "bad request");
+    res.status(status).json({ error });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: "internal server error" });
 });

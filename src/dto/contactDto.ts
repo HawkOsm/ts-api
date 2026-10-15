@@ -1,4 +1,5 @@
 import { Contact } from "../db/contactStore";
+import { sameTag } from "../domain/contact";
 import type { ContactPatch, SortOption } from "../domain/contact";
 
 export class DtoError extends Error {
@@ -47,17 +48,30 @@ function readFlag(value: unknown): boolean {
     return value;
 }
 
+// The one rule for a tag name, used for tags on contacts and for POST/DELETE /tags:
+// text, not blank, no comma (a comma separates the tags inside a contact). Returns it trimmed, or null when invalid.
+function cleanTag(value: unknown): string | null {
+    if (typeof value !== "string" || value.trim() === "" || value.includes(",")) return null;
+    return value.trim();
+}
+
 function readTags(value: unknown): string[] {
     if (!Array.isArray(value)) throw new DtoError("tags must be a list of text", 400);
     const tags: string[] = [];
     for (const item of value) {
-        if (typeof item !== "string" || item.trim() === "" || item.includes(",")) {
-            throw new DtoError("Every tag must be non-empty text without commas", 400);
-        }
-        const tag = item.trim();
-        if (!tags.some((t) => t.toLowerCase() === tag.toLowerCase())) tags.push(tag);   // drop duplicates
+        const tag = cleanTag(item);
+        if (tag === null) throw new DtoError("Every tag must be non-empty text without commas", 400);
+        if (!tags.some((t) => sameTag(t, tag))) tags.push(tag);   // drop duplicates
     }
     return tags;
+}
+
+// A request body must be a JSON object (not missing, a list, or a plain value)
+function asObject(body: unknown): Record<string, any> {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+        throw new DtoError("Request body must be a JSON object", 400);
+    }
+    return body as Record<string, any>;
 }
 
 function readName(value: unknown, field: string): string {
@@ -70,10 +84,8 @@ function readName(value: unknown, field: string): string {
 export class ContactDto {
     private constructor(readonly contact: Contact) {}
 
-    static fromRequest(body: any): ContactDto {
-        if (typeof body !== "object" || body === null || Array.isArray(body)) {
-            throw new DtoError("Request body must be a JSON object", 400);
-        }
+    static fromRequest(raw: unknown): ContactDto {
+        const body = asObject(raw);
         if (typeof body.first_name !== "string" || body.first_name.trim() === ""
             || typeof body.last_name !== "string" || body.last_name.trim() === "") {
             throw new DtoError("First name and last name are required", 400);
@@ -105,10 +117,8 @@ export class ContactDto {
 export class ContactPatchDto {
     private constructor(readonly patch: ContactPatch) {}
 
-    static fromRequest(body: any): ContactPatchDto {
-        if (typeof body !== "object" || body === null || Array.isArray(body)) {
-            throw new DtoError("Request body must be a JSON object", 400);
-        }
+    static fromRequest(raw: unknown): ContactPatchDto {
+        const body = asObject(raw);
         const patch: ContactPatch = {};
         if (body.first_name !== undefined) patch.first_name = readName(body.first_name, "first_name");
         if (body.last_name !== undefined) patch.last_name = readName(body.last_name, "last_name");
@@ -140,18 +150,14 @@ export function parseSortBy(raw: unknown): SortOption {
 
 // A tag name, from a request body or from the URL: text, not blank, no comma (a comma separates the tags inside a contact)
 export function parseTagName(raw: unknown): string {
-    if (typeof raw !== "string" || raw.trim() === "" || raw.includes(",")) {
-        throw new DtoError("Tag name must be non-empty text without commas", 400);
-    }
-    return raw.trim();
+    const name = cleanTag(raw);
+    if (name === null) throw new DtoError("Tag name must be non-empty text without commas", 400);
+    return name;
 }
 
 // the body of POST /tags: { "name": "Gym" }
 export function parseTagBody(body: unknown): string {
-    if (typeof body !== "object" || body === null || Array.isArray(body)) {
-        throw new DtoError("Request body must be a JSON object", 400);
-    }
-    return parseTagName((body as Record<string, unknown>).name);
+    return parseTagName(asObject(body).name);
 }
 
 // ?search=... of GET /tags: optional text; empty means "no filter"
